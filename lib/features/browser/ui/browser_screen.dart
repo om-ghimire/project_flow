@@ -242,7 +242,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(currentTab.title.isNotEmpty ? currentTab.title : 'Browser'),
         actions: [
           IconButton(
             icon: const Icon(Icons.tab),
