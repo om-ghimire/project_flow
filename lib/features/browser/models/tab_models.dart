@@ -32,9 +32,9 @@ class BrowserTab {
     WebViewController? controller,
   }) {
     return BrowserTab(
+      title: title ?? this.title,
       id: id ?? this.id,
       url: url ?? this.url,
-      title: title ?? this.title,
       stackId: stackId ?? this.stackId,
       isRead: isRead ?? this.isRead,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,

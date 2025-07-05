@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../models/tab_models.dart';
 import '../widgets/omni_bar.dart';
+import '../services/history_manager.dart';
 
 class BrowserScreen extends StatefulWidget {
   const BrowserScreen({super.key});
@@ -27,7 +28,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   void _createInitialTab() {
-    final tab = _generateTab('https://google.com', 'Google');
+    final tab = _generateTab('https://google.com', '');
     setState(() {
       openTabs.add(tab);
       currentTabId = tab.id;
@@ -46,8 +47,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
     );
   }
 
-  void _openNewTab(String url, String title) {
-    final tab = _generateTab(url, title);
+  void _openNewTab(String url) {
+    final tab = _generateTab(url, '');
     setState(() {
       openTabs.add(tab);
       currentTabId = tab.id;
@@ -102,7 +103,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     }
   }
 
-  void _onLoadStop(Uri? url) {
+  void _onLoadStop(Uri? url) async {
     setState(() {
       isLoading = false;
     });
@@ -118,6 +119,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
       setState(() {
         currentUrl = url.toString();
       });
+
+      // Add to history on load stop
+      await HistoryManager().addEntry(url.toString());
     }
   }
 
@@ -159,7 +163,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
                     final tab = openTabs[index];
                     return ListTile(
                       leading: tab.faviconUrl!.isNotEmpty
-                          ? Image.network(tab.faviconUrl!, width: 24, height: 24, errorBuilder: (_, __, ___) => const Icon(Icons.public))
+                          ? Image.network(tab.faviconUrl!,
+                          width: 24, height: 24, errorBuilder: (_, __, ___) => const Icon(Icons.public))
                           : const Icon(Icons.public),
                       title: Text(
                         tab.title.isNotEmpty ? tab.title : tab.url,
@@ -188,7 +193,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   label: const Text('New Tab'),
                   onPressed: () {
                     Navigator.pop(context);
-                    _openNewTab('https://google.com', 'Google');
+                    _openNewTab('https://google.com');
                   },
                 ),
               ),
@@ -209,9 +214,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
             ListTile(
               leading: const Icon(Icons.history),
               title: const Text('History'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/history');
+                final selectedUrl = await Navigator.pushNamed(context, '/history');
+                if (selectedUrl is String) {
+                  _openNewTab(selectedUrl);
+                }
               },
             ),
             ListTile(

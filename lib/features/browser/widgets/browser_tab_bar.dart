@@ -72,50 +72,72 @@ class BrowserTabBar extends StatelessWidget {
     return GestureDetector(
       onTap: () => onTabSelected(tab),
       onLongPress: () => onTabLongPressed?.call(tab),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isActive
-              ? [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+      child: Stack(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: isActive
+                  ? [
+                BoxShadow(
+                  color: theme.colorScheme.primary.withOpacity(0.2),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+                  : [],
             ),
-          ]
-              : [],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFavicon(tab.faviconUrl),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 140),
-              child: Text(
-                tab.title.isNotEmpty ? tab.title : _getDomain(tab.url),
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge!.copyWith(
-                  color: textColor,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildFavicon(tab.faviconUrl),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Text(
+                    tab.title.isNotEmpty ? tab.title : _getDomain(tab.url),
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge!.copyWith(
+                      color: textColor,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () => onTabClosed(tab),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close, size: 18, color: textColor.withOpacity(0.7)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Animated underline
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              height: isActive ? 3.0 : 0.0,
+              decoration: BoxDecoration(
+                color: isActive ? theme.colorScheme.primary : Colors.transparent,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(2),
+                  topRight: Radius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(width: 6),
-            InkWell(
-              onTap: () => onTabClosed(tab),
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.close, size: 18, color: textColor.withOpacity(0.7)),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

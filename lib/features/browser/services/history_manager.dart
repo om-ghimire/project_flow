@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class HistoryEntry {
@@ -28,21 +29,24 @@ class HistoryManager {
     final prefs = await SharedPreferences.getInstance();
     final List<String>? stored = prefs.getStringList(_historyKey);
     if (stored == null) return [];
-    return stored.map((e) => HistoryEntry.fromJson(Map<String, dynamic>.from(
-        e.isNotEmpty ? Map<String, dynamic>.from(Uri.splitQueryString(e)) : {}))).toList();
+    return stored
+        .map((e) => HistoryEntry.fromJson(json.decode(e) as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> addEntry(String url) async {
     final prefs = await SharedPreferences.getInstance();
     final List<String> stored = prefs.getStringList(_historyKey) ?? [];
 
-    // Add new entry as query string to avoid JSON parsing complexity:
-    final newEntry = Uri(queryParameters: {
-      'url': url,
-      'visitedAt': DateTime.now().toIso8601String(),
-    }).query;
+    final newEntry = HistoryEntry(url: url, visitedAt: DateTime.now());
 
-    stored.insert(0, newEntry); // Newest at start
+    // Avoid duplicates: remove any existing entry for this URL
+    stored.removeWhere((e) {
+      final entry = HistoryEntry.fromJson(json.decode(e));
+      return entry.url == url;
+    });
+
+    stored.insert(0, json.encode(newEntry.toJson())); // newest first
     await prefs.setStringList(_historyKey, stored);
   }
 

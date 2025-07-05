@@ -16,7 +16,7 @@ class ProjectFlowApp extends StatelessWidget {
       title: 'Project Flow',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
-      home: const AuthGate(),  // show AuthGate instead of BrowserScreen
+      home: const AuthGate(),
       routes: {
         '/history': (context) => const HistoryScreen(),
         '/settings': (context) => const SettingsScreen(),
