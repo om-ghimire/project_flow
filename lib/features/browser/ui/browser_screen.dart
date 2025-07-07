@@ -269,22 +269,40 @@ class _BrowserScreenState extends State<BrowserScreen> {
           ),
           if (isLoading) const LinearProgressIndicator(),
           Expanded(
-            child: InAppWebView(
-              key: ValueKey(currentTab.id),
-              initialUrlRequest: URLRequest(url: WebUri(currentTab.url)),
-              onWebViewCreated: (controller) {
-                webViewController = controller;
-                isWebViewReady = true;
+            child: GestureDetector(
+              onHorizontalDragEnd: (details) async {
+                if (details.primaryVelocity == null) return;
+
+                if (details.primaryVelocity! > 0) {
+                  // Swipe right -> go back if possible
+                  if (await webViewController.canGoBack()) {
+                    webViewController.goBack();
+                  }
+                } else if (details.primaryVelocity! < 0) {
+                  // Swipe left -> go forward if possible
+                  if (await webViewController.canGoForward()) {
+                    webViewController.goForward();
+                  }
+                }
               },
-              onLoadStart: (_, url) => _onLoadStart(url),
-              onLoadStop: (_, url) => _onLoadStop(url),
-              onProgressChanged: (_, progress) {
-                setState(() {
-                  isLoading = progress < 100;
-                });
-              },
+              child: InAppWebView(
+                key: ValueKey(currentTab.id),
+                initialUrlRequest: URLRequest(url: WebUri(currentTab.url)),
+                onWebViewCreated: (controller) {
+                  webViewController = controller;
+                  isWebViewReady = true;
+                },
+                onLoadStart: (_, url) => _onLoadStart(url),
+                onLoadStop: (_, url) => _onLoadStop(url),
+                onProgressChanged: (_, progress) {
+                  setState(() {
+                    isLoading = progress < 100;
+                  });
+                },
+              ),
             ),
           ),
+
         ],
       ),
     );
