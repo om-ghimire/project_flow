@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+
 import 'features/browser/ui/auth_gate.dart';
 import 'features/browser/ui/history_screen.dart';
-import 'features/browser/ui/search_engines_screen.dart' show SearchEnginesScreen;
+import 'features/browser/ui/search_engines_screen.dart';
 import 'features/browser/ui/settings_screen.dart';
 import 'features/browser/ui/permissions_screen.dart';
-import 'package:permission_handler/permission_handler.dart';
+
+import 'features/browser/services/theme_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +17,15 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
 
-  runApp(ProjectFlowApp(showPermissionsFirst: isFirstLaunch));
+  final savedTheme = prefs.getString('themeMode') ?? 'system';
+  final themeMode = ThemeManager.stringToThemeMode(savedTheme);
+
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeManager(themeMode),
+      child: ProjectFlowApp(showPermissionsFirst: isFirstLaunch),
+    ),
+  );
 
   if (isFirstLaunch) {
     await prefs.setBool('isFirstLaunch', false);
@@ -26,13 +38,15 @@ class ProjectFlowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeManager = Provider.of<ThemeManager>(context);
+
     return MaterialApp(
       title: 'Project Flow',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
-      home: PermissionCheckWrapper(
-        showPermissionsFirst: showPermissionsFirst,
-      ),
+      themeMode: themeManager.themeMode,
+      theme: ThemeData.light(useMaterial3: true),
+      darkTheme: ThemeData.dark(useMaterial3: true),
+      home: PermissionCheckWrapper(showPermissionsFirst: showPermissionsFirst),
       routes: {
         '/history': (context) => const HistoryScreen(),
         '/settings': (context) => const SettingsScreen(),
@@ -43,7 +57,6 @@ class ProjectFlowApp extends StatelessWidget {
   }
 }
 
-/// Wrapper widget to check permissions on app resume
 class PermissionCheckWrapper extends StatefulWidget {
   final bool showPermissionsFirst;
   const PermissionCheckWrapper({super.key, required this.showPermissionsFirst});
@@ -52,64 +65,38 @@ class PermissionCheckWrapper extends StatefulWidget {
   State<PermissionCheckWrapper> createState() => _PermissionCheckWrapperState();
 }
 
-class _PermissionCheckWrapperState extends State<PermissionCheckWrapper> with WidgetsBindingObserver {
-  bool _needsPermissions = false;
+class _PermissionCheckWrapperState extends State<PermissionCheckWrapper> {
+  bool? _showPermissionScreen;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _checkPermissionsOnStart();
+    _checkInitialPermissionState();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkPermissionsOnStart();
-    }
-  }
-
-  Future<void> _checkPermissionsOnStart() async {
-    final allGranted = await _areAllPermissionsGranted();
-    if (!allGranted) {
-      setState(() {
-        _needsPermissions = true;
-      });
-    } else {
-      setState(() {
-        _needsPermissions = false;
-      });
-    }
-  }
-
-  Future<bool> _areAllPermissionsGranted() async {
+  Future<void> _checkInitialPermissionState() async {
     final permissions = [
       Permission.location,
       Permission.camera,
       Permission.microphone,
-      // Add other required permissions here
     ];
 
-    for (var permission in permissions) {
-      if (!await permission.isGranted) {
-        return false;
-      }
-    }
-    return true;
+    final statuses = await Future.wait(permissions.map((p) => p.status));
+    final anyDenied = statuses.any((status) => !status.isGranted);
+
+    setState(() {
+      _showPermissionScreen = widget.showPermissionsFirst || anyDenied;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_needsPermissions || widget.showPermissionsFirst) {
-      return const PermissionsScreen();
-    } else {
-      return const AuthGate();
+    if (_showPermissionScreen == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+
+    return _showPermissionScreen!
+        ? const PermissionsScreen()
+        : const AuthGate();
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/settings_manager.dart';
+import 'package:project_flow/features/browser/services/history_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,216 +10,137 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool adBlockEnabled = false;
-  bool biometricEnabled = false;
-  int blockedAdsCount = 0;
-  List<String> adBlockFilters = [];
-  String selectedDns = '1.1.1.1';
-
-  final TextEditingController _filterController = TextEditingController();
-
-  final List<String> dnsOptions = [
-    '1.1.1.1',
-    '8.8.8.8',
-    '9.9.9.9',
-    '114.114.114.114',
-  ];
-
-  bool _dnsExpanded = false;
-  bool _filtersExpanded = false;
+  ThemeMode _themeMode = ThemeMode.system;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadThemeMode();
   }
 
-  Future<void> _loadSettings() async {
-    adBlockEnabled = await SettingsManager().getAdBlockEnabled();
-    biometricEnabled = await SettingsManager().getBiometricEnabled();
-    blockedAdsCount = await SettingsManager().getBlockedAdsCount();
-    adBlockFilters = await SettingsManager().getAdBlockFilters();
-    selectedDns = await SettingsManager().getSelectedDns() ?? dnsOptions[0];
-    setState(() {});
+  Future<void> _loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mode = prefs.getString('themeMode') ?? 'system';
+    setState(() {
+      _themeMode = _parseThemeMode(mode);
+    });
   }
 
-  Future<void> _onAdBlockToggle(bool value) async {
-    await SettingsManager().setAdBlockEnabled(value);
-    setState(() => adBlockEnabled = value);
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('themeMode', _themeModeToString(mode));
+    setState(() {
+      _themeMode = mode;
+    });
   }
 
-  Future<void> _onBiometricToggle(bool value) async {
-    await SettingsManager().setBiometricEnabled(value);
-    setState(() => biometricEnabled = value);
-  }
-
-  Future<void> _addFilter() async {
-    final text = _filterController.text.trim();
-    if (text.isEmpty) return;
-    if (!adBlockFilters.contains(text)) {
-      adBlockFilters.add(text);
-      await SettingsManager().setAdBlockFilters(adBlockFilters);
-      _filterController.clear();
-      setState(() {});
+  ThemeMode _parseThemeMode(String value) {
+    switch (value) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      default:
+        return ThemeMode.system;
     }
   }
 
-  Future<void> _removeFilter(String filter) async {
-    adBlockFilters.remove(filter);
-    await SettingsManager().setAdBlockFilters(adBlockFilters);
-    setState(() {});
-  }
-
-  Future<void> _selectDns(String dns) async {
-    selectedDns = dns;
-    await SettingsManager().setSelectedDns(dns);
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _filterController.dispose();
-    super.dispose();
-  }
-
-  Widget _buildSwitchTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SwitchListTile.adaptive(
-        secondary: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-        value: value,
-        onChanged: onChanged,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      ),
-    );
-  }
-
-  Widget _buildExpansionCard({
-    required String title,
-    required Widget child,
-    required bool initiallyExpanded,
-    required ValueChanged<bool> onExpansionChanged,
-  }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        title: Text(title, style: Theme.of(context).textTheme.titleMedium),
-        initiallyExpanded: initiallyExpanded,
-        onExpansionChanged: onExpansionChanged,
-        childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [child],
-      ),
-    );
+  String _themeModeToString(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'light';
+      case ThemeMode.dark:
+        return 'dark';
+      default:
+        return 'system';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        surfaceTintColor: theme.colorScheme.surfaceTint,
-        elevation: 2,
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
         children: [
-          _buildSwitchTile(
-            icon: Icons.block,
-            title: 'Enable AdBlocker',
-            subtitle: 'Block unwanted ads and trackers',
-            value: adBlockEnabled,
-            onChanged: _onAdBlockToggle,
+          const SizedBox(height: 8),
+
+          /// Search Engines
+          ListTile(
+            leading: const Icon(Icons.search),
+            title: const Text('Manage Search Engines'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, '/search_engines'),
           ),
 
-          Card(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ListTile(
-              leading: Icon(Icons.analytics, color: theme.colorScheme.primary),
-              title: Text('Blocked Ads Count', style: theme.textTheme.titleMedium),
-              trailing: Text('$blockedAdsCount', style: theme.textTheme.titleLarge),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            ),
+          /// Permissions
+          ListTile(
+            leading: const Icon(Icons.security),
+            title: const Text('Manage Permissions'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.pushNamed(context, '/permissions'),
           ),
 
-          _buildSwitchTile(
-            icon: Icons.fingerprint,
-            title: 'Enable Biometric Authentication',
-            subtitle: 'Secure your app with biometrics',
-            value: biometricEnabled,
-            onChanged: _onBiometricToggle,
+          /// Theme
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+            child: Text('Theme', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('System Default'),
+            value: ThemeMode.system,
+            groupValue: _themeMode,
+            onChanged: (value) => _setThemeMode(value!),
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('Light'),
+            value: ThemeMode.light,
+            groupValue: _themeMode,
+            onChanged: (value) => _setThemeMode(value!),
+          ),
+          RadioListTile<ThemeMode>(
+            title: const Text('Dark'),
+            value: ThemeMode.dark,
+            groupValue: _themeMode,
+            onChanged: (value) => _setThemeMode(value!),
           ),
 
-          _buildExpansionCard(
-            title: 'Select DNS Provider',
-            initiallyExpanded: _dnsExpanded,
-            onExpansionChanged: (expanded) => setState(() => _dnsExpanded = expanded),
-            child: Column(
-              children: dnsOptions.map((dns) {
-                return RadioListTile<String>(
-                  value: dns,
-                  groupValue: selectedDns,
-                  title: Text(dns, style: theme.textTheme.bodyLarge),
-                  onChanged: (value) {
-                    if (value != null) _selectDns(value);
-                  },
-                  contentPadding: EdgeInsets.zero,
-                );
-              }).toList(),
-            ),
+          /// Clear Data
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+            child: Text('Privacy & Data', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
-
-          _buildExpansionCard(
-            title: 'Custom AdBlock Filters',
-            initiallyExpanded: _filtersExpanded,
-            onExpansionChanged: (expanded) => setState(() => _filtersExpanded = expanded),
-            child: Column(
-              children: [
-                ...adBlockFilters.map((filter) => ListTile(
-                  title: Text(filter, style: theme.textTheme.bodyLarge),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.redAccent),
-                    onPressed: () => _removeFilter(filter),
-                  ),
-                  contentPadding: EdgeInsets.zero,
-                )),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _filterController,
-                        decoration: InputDecoration(
-                          labelText: 'Add filter (e.g., ads.example.com)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: _addFilter,
-                      child: const Text('Add'),
+          ListTile(
+            leading: const Icon(Icons.history),
+            title: const Text('Clear History'),
+            onTap: () {
+              // implement in history manager
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Confirm'),
+                  content: const Text('Clear browsing history?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () async {
+                        await HistoryManager().clearHistory();
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('History cleared')));
+                      },
+                      child: const Text('Clear'),
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
-          const SizedBox(height: 24),
+
+          /// Footer
+          const SizedBox(height: 20),
+          Center(
+            child: Text('Version 1.0.0', style: Theme.of(context).textTheme.bodySmall),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../services/search_engine_manager.dart';
 
 class SearchEnginesScreen extends StatefulWidget {
@@ -23,16 +24,80 @@ class _SearchEnginesScreenState extends State<SearchEnginesScreen> {
   }
 
   void _addEngine() {
-    // Show dialog to add a new engine (name + URL template)
+    _showEngineDialog();
   }
 
   void _editEngine(SearchEngine engine) {
-    // Show dialog to edit selected engine
+    _showEngineDialog(existing: engine);
   }
 
   void _deleteEngine(SearchEngine engine) async {
-    await SearchEngineManager().deleteEngine(engine.id);
-    _loadEngines();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Search Engine'),
+        content: Text('Are you sure you want to delete "${engine.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await SearchEngineManager().deleteEngine(engine.id);
+      _loadEngines();
+    }
+  }
+
+  void _showEngineDialog({SearchEngine? existing}) {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final urlController = TextEditingController(text: existing?.urlTemplate ?? '');
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(existing == null ? 'Add Search Engine' : 'Edit Search Engine'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(labelText: 'URL Template (use `{query}`)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final url = urlController.text.trim();
+              if (name.isEmpty || url.isEmpty || !url.contains('{query}')) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Invalid name or URL (must include {query})'),
+                ));
+                return;
+              }
+
+              final engine = SearchEngine(
+                id: existing?.id ?? const Uuid().v4(),
+                name: name,
+                urlTemplate: url,
+              );
+
+              await SearchEngineManager().addOrUpdateEngine(engine);
+              _loadEngines();
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -41,9 +106,12 @@ class _SearchEnginesScreenState extends State<SearchEnginesScreen> {
       appBar: AppBar(title: const Text('Search Engines')),
       floatingActionButton: FloatingActionButton(
         onPressed: _addEngine,
+        tooltip: 'Add Engine',
         child: const Icon(Icons.add),
       ),
-      body: ListView.builder(
+      body: engines.isEmpty
+          ? const Center(child: Text('No search engines added.'))
+          : ListView.builder(
         itemCount: engines.length,
         itemBuilder: (context, index) {
           final engine = engines[index];
@@ -53,14 +121,8 @@ class _SearchEnginesScreenState extends State<SearchEnginesScreen> {
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit),
-                  onPressed: () => _editEngine(engine),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _deleteEngine(engine),
-                ),
+                IconButton(icon: const Icon(Icons.edit), onPressed: () => _editEngine(engine)),
+                IconButton(icon: const Icon(Icons.delete), onPressed: () => _deleteEngine(engine)),
               ],
             ),
           );
